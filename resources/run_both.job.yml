@@ -1,0 +1,16 @@
+resources:
+  jobs:
+    run_both:
+      name: cdf-delete-run-both
+      max_concurrent_runs: 1
+      queue:
+        enabled: false
+      tasks:
+      - task_key: engineer_a
+        pipeline_task:
+          pipeline_id: ${resources.pipelines.engineer_a.id}
+          full_refresh: false
+      - task_key: engineer_b
+        pipeline_task:
+          pipeline_id: ${resources.pipelines.engineer_b.id}
+          full_refresh: false

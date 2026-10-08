@@ -1,0 +1,6 @@
+resources:
+  schemas:
+    demo:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: Isolated synthetic data for the Delta CDF deletion propagation demo.

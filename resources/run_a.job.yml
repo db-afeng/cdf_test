@@ -1,0 +1,12 @@
+resources:
+  jobs:
+    run_a:
+      name: cdf-delete-run-engineer-a
+      max_concurrent_runs: 1
+      queue:
+        enabled: false
+      tasks:
+      - task_key: engineer_a
+        pipeline_task:
+          pipeline_id: ${resources.pipelines.engineer_a.id}
+          full_refresh: false

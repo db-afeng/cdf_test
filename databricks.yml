@@ -1,0 +1,28 @@
+bundle:
+  name: delta-cdf-delete-demo
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Existing Unity Catalog catalog in which to create the demo schema.
+    default: afeng
+  schema:
+    description: Dedicated schema owned by this demo. Use a new name for each deployment.
+    default: cdf_delete_demo
+  warehouse_id:
+    description: SQL warehouse used by the control centre. Override for another workspace.
+    default: 012dbd1dd8e36504
+  app_name:
+    description: Workspace-unique Databricks App name.
+    default: afeng-cdf-delete-demo
+  seed_rows:
+    description: Number of deterministic source orders (50 to 100000).
+    default: "1000"
+
+targets:
+  dev:
+    default: true
+    workspace:
+      profile: azure-fe-east

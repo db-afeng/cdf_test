@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delete propagation | Delta CDF</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#controls">Skip to controls</a>
+  <main>
+    <header class="page-header">
+      <div>
+        <h1>Delete propagation</h1>
+        <p class="intro">Delete an order, then run each pipeline to check its output.</p>
+      </div>
+      <button id="refresh" class="secondary">Refresh data</button>
+    </header>
+    <div class="data-context">
+      <code id="namespace">Connecting...</code>
+      <span id="freshness">Loading the demo tables.</span>
+    </div>
+
+    <section id="controls" class="controls" aria-label="Demo controls">
+      <div class="delete-control">
+        <label for="ids">Order IDs</label>
+        <div class="input-row">
+          <input id="ids" value="42" placeholder="42, 43, 44" inputmode="numeric" aria-describedby="ids-help">
+          <button id="delete" class="danger">Delete orders</button>
+        </div>
+        <p id="ids-help" class="help">Use commas to delete several orders.</p>
+      </div>
+      <div class="run-controls">
+        <button class="primary run" data-action="both">Run both pipelines</button>
+        <button class="secondary run" data-action="reset">Reset demo</button>
+        <p class="help">Reset restores the orders and runs both pipelines.</p>
+      </div>
+    </section>
+
+    <div id="notice" class="notice" role="status">Loading data...</div>
+    <section id="run-panel" class="run-panel" hidden aria-live="polite">
+      <div class="section-heading">
+        <h2>Current run</h2>
+        <a id="run-link" target="_blank" rel="noopener">View run in Databricks</a>
+      </div>
+      <p id="run-status"></p>
+    </section>
+
+    <section id="pipeline-status" aria-busy="true">
+      <div class="section-heading">
+        <h2>Pipeline status</h2>
+        <span class="section-note">New events since the last reset</span>
+      </div>
+      <div class="table-scroll" role="region" aria-label="Pipeline counts and run controls" tabindex="0">
+        <table class="pipeline-table">
+          <thead>
+            <tr>
+              <th scope="col">Consumer</th>
+              <th scope="col">Output</th>
+              <th scope="col" class="numeric">Rows</th>
+              <th scope="col" class="numeric">New events</th>
+              <th scope="col" class="numeric">Pending events</th>
+              <th scope="col"><span class="sr-only">Run controls</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="source-row">
+              <th scope="row">Source</th>
+              <td><code>source_orders</code><span class="cell-note">Delta Change Data Feed enabled</span></td>
+              <td id="source-count" class="numeric count">...</td>
+              <td id="source-events" class="numeric">...</td>
+              <td class="numeric muted">-</td>
+              <td></td>
+            </tr>
+            <tr>
+              <th scope="row">Engineer A</th>
+              <td><code>orders_enriched</code><span class="cell-note">1 row per order</span></td>
+              <td id="a-count" class="numeric count">...</td>
+              <td id="a-events" class="numeric">...</td>
+              <td id="a-pending" class="numeric">...</td>
+              <td class="table-action"><button class="text-button run" data-action="a">Run A</button></td>
+            </tr>
+            <tr>
+              <th scope="row">Engineer B</th>
+              <td><code>order_lines</code><span class="cell-note">2 lines per order</span></td>
+              <td id="b-count" class="numeric count">...</td>
+              <td id="b-events" class="numeric">...</td>
+              <td id="b-pending" class="numeric">...</td>
+              <td class="table-action"><button class="text-button run" data-action="b">Run B</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="evidence-copy" class="status-summary">Loading event counts...</p>
+      <details class="count-help">
+        <summary>How to read these counts</summary>
+        <p>Compare new events with the source row count. After you delete 1 order, each pipeline reads 1 new CDF event. Engineer B uses that event to remove 2 lines.</p>
+        <p>On the first run, each pipeline reads the source snapshot. Later runs use saved checkpoints. Full refresh is disabled.</p>
+        <p>These are logical event counts. Source deletes and target updates can still scan or rewrite Delta files. Reset keeps the change history.</p>
+      </details>
+    </section>
+
+    <section id="record-section" aria-busy="true">
+      <div class="section-heading">
+        <h2>Selected orders</h2>
+        <label class="toggle"><input id="show-samples" type="checkbox"> Include 15 sample orders</label>
+      </div>
+      <div class="table-scroll" role="region" aria-label="Order presence in the source and each output" tabindex="0">
+        <table class="record-table">
+          <thead>
+            <tr><th scope="col">Order ID</th><th scope="col">Customer</th><th scope="col">Region</th><th scope="col" class="numeric">Amount</th><th scope="col">Source</th><th scope="col">Engineer A</th><th scope="col" class="numeric">B lines</th></tr>
+          </thead>
+          <tbody id="records"><tr><td colspan="7" class="empty-state">Loading orders...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <details class="history">
+      <summary><h2>Change history</h2></summary>
+      <p class="help">Source commit versions and events read by each pipeline.</p>
+      <div class="ledgers">
+        <section aria-labelledby="ledger-a-title">
+          <div class="ledger-heading"><h3 id="ledger-a-title">Engineer A</h3><span id="a-total"></span></div>
+          <div class="table-scroll" role="region" aria-label="Engineer A change history" tabindex="0">
+            <table><thead><tr><th scope="col">Version</th><th scope="col">Change</th><th scope="col" class="numeric">Events</th><th scope="col">Sample IDs</th></tr></thead><tbody id="ledger-a"></tbody></table>
+          </div>
+        </section>
+        <section aria-labelledby="ledger-b-title">
+          <div class="ledger-heading"><h3 id="ledger-b-title">Engineer B</h3><span id="b-total"></span></div>
+          <div class="table-scroll" role="region" aria-label="Engineer B change history" tabindex="0">
+            <table><thead><tr><th scope="col">Version</th><th scope="col">Change</th><th scope="col" class="numeric">Events</th><th scope="col">Sample IDs</th></tr></thead><tbody id="ledger-b"></tbody></table>
+          </div>
+        </section>
+      </div>
+    </details>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

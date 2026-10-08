@@ -1,0 +1,13 @@
+command: ['python', 'app.py']
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: RESET_JOB_ID
+    valueFrom: reset-job
+  - name: RUN_A_JOB_ID
+    valueFrom: run-a-job
+  - name: RUN_B_JOB_ID
+    valueFrom: run-b-job
+  - name: RUN_BOTH_JOB_ID
+    valueFrom: run-both-job
+

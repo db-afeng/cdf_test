@@ -1,0 +1,27 @@
+resources:
+  jobs:
+    reset_demo:
+      name: cdf-delete-reset-and-initialize
+      max_concurrent_runs: 1
+      queue:
+        enabled: false
+      tasks:
+      - task_key: restore_source
+        notebook_task:
+          notebook_path: ../src/notebooks/restore_source.py
+          base_parameters:
+            catalog: ${var.catalog}
+            schema: ${var.schema}
+            seed_rows: ${var.seed_rows}
+      - task_key: engineer_a
+        depends_on:
+        - task_key: restore_source
+        pipeline_task:
+          pipeline_id: ${resources.pipelines.engineer_a.id}
+          full_refresh: false
+      - task_key: engineer_b
+        depends_on:
+        - task_key: restore_source
+        pipeline_task:
+          pipeline_id: ${resources.pipelines.engineer_b.id}
+          full_refresh: false

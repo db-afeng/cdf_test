@@ -1,0 +1,20 @@
+resources:
+  pipelines:
+    engineer_b:
+      name: cdf-delete-engineer-b
+      catalog: ${var.catalog}
+      schema: ${var.schema}
+      serverless: true
+      photon: true
+      edition: ADVANCED
+      development: true
+      channel: CURRENT
+      configuration:
+        demo.source: ${var.catalog}.${var.schema}.source_orders
+      libraries:
+      - file:
+          path: ../src/pipelines/engineer_b.py
+      event_log:
+        catalog: ${var.catalog}
+        schema: ${var.schema}
+        name: engineer_b_event_log

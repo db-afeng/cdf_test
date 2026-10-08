@@ -1,0 +1,40 @@
+resources:
+  apps:
+    control_centre:
+      name: ${var.app_name}
+      description: Delete synthetic Delta records and watch independent CDF consumers catch up.
+      source_code_path: ../src/app
+      config:
+        command: ['python', 'app.py']
+        env:
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse
+          - name: RESET_JOB_ID
+            value_from: reset-job
+          - name: RUN_A_JOB_ID
+            value_from: run-a-job
+          - name: RUN_B_JOB_ID
+            value_from: run-b-job
+          - name: RUN_BOTH_JOB_ID
+            value_from: run-both-job
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: reset-job
+          job:
+            id: ${resources.jobs.reset_demo.id}
+            permission: CAN_MANAGE_RUN
+        - name: run-a-job
+          job:
+            id: ${resources.jobs.run_a.id}
+            permission: CAN_MANAGE_RUN
+        - name: run-b-job
+          job:
+            id: ${resources.jobs.run_b.id}
+            permission: CAN_MANAGE_RUN
+        - name: run-both-job
+          job:
+            id: ${resources.jobs.run_both.id}
+            permission: CAN_MANAGE_RUN
