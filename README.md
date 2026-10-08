@@ -5,17 +5,10 @@ Spark Declarative Pipelines, and a Databricks App control centre. Delete a sourc
 order, run each consumer, observe the deletion, and restore the example without a
 full refresh.
 
-The default source is **`afeng.cdf_delete_demo.source_orders`**, with **1,000**
-deterministic orders. All datasets belong to the bundle's dedicated schema.
-
-**Deployed and verified on 2026-10-07 using `azure-fe-east`:**
-[Open the control centre](https://afeng-cdf-delete-demo-984752964297111.11.azure.databricksapps.com).
-The integration check passed deletion, independent consumer catch-up, a no-change
-rerun and incremental reset. The live App also passed service-principal DELETE,
-Job start/polling and reset checks. All source and output rows are restored:
-**1,000 source / 1,000 enriched / 2,000 lines**. Historical ledger evidence remains.
-Actual observations are saved locally in `test-results/integration.json` and
-`test-results/app-smoke.json`.
+Deploy the bundle in your own workspace to try the example. It creates
+**1,000** deterministic orders by default in
+**`<your_catalog>.<your_demo_schema>.source_orders`**. All datasets belong to the
+bundle's dedicated schema, and the deployment helper prints your app's URL.
 
 ## How the design works
 
@@ -48,20 +41,74 @@ The underlying pipeline event logs are also published in the demo schema.
 
 ## Deploy
 
-Prerequisites: a recent Databricks CLI with Apps and bundles support, an
-authenticated `azure-fe-east` profile, serverless Jobs/SDP/Apps enabled, access to
-the SQL warehouse, and permission to create a schema in `afeng`. The deploying
-identity must also be able to grant the app principal `USE_CATALOG`.
+You need:
 
-From this directory:
+- Python 3 and a recent Databricks CLI with Apps and bundles support.
+- A Unity Catalog workspace with serverless Jobs, Lakeflow Spark Declarative
+  Pipelines, and Databricks Apps available.
+- An existing Unity Catalog catalog and SQL warehouse you can use.
+- Permission to create the demo schema, Jobs, pipelines, and App, grant the App
+  access to the warehouse and Jobs, and grant its service principal `USE_CATALOG`,
+  `USE_SCHEMA`, `SELECT`, and `MODIFY` on the relevant demo resources.
+
+### Configure your workspace
+
+From this directory, replace the workspace URL, catalog, warehouse ID, and App
+name below with values for your workspace. Use a new dedicated schema and a
+workspace-unique App name. You can find the warehouse ID on its details page in
+the Databricks workspace.
 
 ```bash
-python3 scripts/deploy.py
+DEMO_WORKSPACE_URL="https://<your-workspace-host>"
+DEMO_PROFILE="cdf-demo"
+DEMO_CATALOG="your_catalog"
+DEMO_SCHEMA="cdf_delete_demo"
+DEMO_WAREHOUSE_ID="your_warehouse_id"
+DEMO_APP_NAME="cdf-delete-demo-your-name"
+
+databricks auth login --host "$DEMO_WORKSPACE_URL" --profile "$DEMO_PROFILE"
+
+DEMO_VARS=(
+  --var "catalog=$DEMO_CATALOG"
+  --var "schema=$DEMO_SCHEMA"
+  --var "warehouse_id=$DEMO_WAREHOUSE_ID"
+  --var "app_name=$DEMO_APP_NAME"
+  --var "seed_rows=1000"
+)
 ```
 
-This validates and deploys the entire DAB, creates the new schema, initializes
-the source and both consumers, grants the app access, and starts the app. It
-prints the app URL. Initial serverless pipeline startup can take several minutes.
+If you already have an authenticated CLI profile for your workspace, set
+`DEMO_PROFILE` to that profile and skip the login command. The examples use Bash
+or Zsh arrays; run subsequent commands in the same shell so these settings remain
+available. The checked-in configuration and helper scripts have workspace-specific
+defaults, so always pass your profile and the variable overrides shown here.
+
+| Variable | Value for your deployment | Purpose |
+|---|---|---|
+| `catalog` | Your existing catalog | UC catalog in which to create the schema |
+| `schema` | `cdf_delete_demo` or another fresh name | Dedicated demo schema |
+| `warehouse_id` | Your SQL warehouse ID | Warehouse used by the control centre |
+| `app_name` | A workspace-unique name | Databricks App name |
+| `seed_rows` | `1000` | 50–100,000 deterministic source rows |
+
+Catalog/schema identifiers must start with a letter or underscore and contain
+only letters, digits, and underscores. The walkthrough below assumes
+`seed_rows=1000`; other sizes produce corresponding source/output counts.
+
+### Deploy and initialize
+
+```bash
+python3 scripts/deploy.py \
+  --profile "$DEMO_PROFILE" \
+  --target dev \
+  "${DEMO_VARS[@]}"
+```
+
+This validates and deploys the entire bundle, creates the new schema, initializes
+the source and both consumers, grants the App access, and starts the App. Open
+the control centre URL printed when it finishes. Initial serverless pipeline
+startup can take several minutes. The deployment creates resources that incur
+normal workspace compute charges when used.
 
 The bundle declares the schema, both pipelines, all four control Jobs, the App,
 and its warehouse/Job resource permissions. Source and baseline tables are created
@@ -70,28 +117,9 @@ by SDP. The deployment helper adds Unity Catalog permissions after app creation
 and source initialization, avoiding a dependency cycle. It adds grants without
 replacing existing principals' grants.
 
-### Change the deployment variables
-
-```bash
-python3 scripts/deploy.py \
-  --profile azure-fe-east \
-  --var catalog=afeng \
-  --var schema=cdf_delete_demo_example2 \
-  --var app_name=afeng-cdf-delete-example2
-```
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `catalog` | `afeng` | Existing UC catalog |
-| `schema` | `cdf_delete_demo` | New dedicated schema |
-| `warehouse_id` | `012dbd1dd8e36504` | Existing serverless warehouse `vjs` in azure-fe-east |
-| `app_name` | `afeng-cdf-delete-demo` | Workspace-unique App name |
-| `seed_rows` | `1000` | 50–100,000 source rows |
-
 You can also edit the defaults in `databricks.yml` or use standard bundle variable
-overrides such as `BUNDLE_VAR_catalog`. Catalog/schema identifiers in this minimal
-demo accept letters, digits, and underscores. Reuse the same variables on every
-command. Use a new schema/app name **and a distinct target or workspace root path**
+overrides such as `BUNDLE_VAR_catalog`. Reuse the same profile, target, and variables
+on every command. Use a new schema/App name **and a distinct target or workspace root path**
 for a second deployment you want to keep alongside the first; overriding variables
 on the same target updates that deployment. Use a fresh schema when changing
 `seed_rows`, because reset only restores missing records from the configured seed.
@@ -144,7 +172,8 @@ python3 -m venv .venv
 .venv/bin/pip install -r src/app/requirements.txt
 .venv/bin/python -m unittest discover -s tests -v
 node --check src/app/static/app.js
-databricks bundle validate --strict -t dev --profile azure-fe-east
+databricks bundle validate --strict \
+  --target dev --profile "$DEMO_PROFILE" "${DEMO_VARS[@]}"
 ```
 
 The CLI's `databricks apps validate` currently requires a `package.json` project,
@@ -155,10 +184,11 @@ the real-workspace integration check below.
 After deployment, run the real end-to-end check:
 
 ```bash
-.venv/bin/python scripts/verify.py
+.venv/bin/python scripts/verify.py \
+  --profile "$DEMO_PROFILE" --target dev "${DEMO_VARS[@]}"
 ```
 
-Pass the same `--var` overrides if you deployed with different variables. It
+This uses the same workspace and variables as your deployment. It
 initializes/resets the **synthetic demo**, deletes ID 42, runs A before B, verifies
 the ledger deltas and a no-op run, then restores the source. The check saves actual
 observations to `test-results/integration.json` and leaves all rows restored.
@@ -168,7 +198,8 @@ same test through the deployed App, including the app service principal's DELETE
 and Job permissions and the platform proxy's same-origin handling, use:
 
 ```bash
-.venv/bin/python scripts/verify.py --deployed-app
+.venv/bin/python scripts/verify.py --deployed-app \
+  --profile "$DEMO_PROFILE" --target dev "${DEMO_VARS[@]}"
 ```
 
 That mode saves `test-results/app-integration.json`. The deployment helper provisions
@@ -176,7 +207,7 @@ the App's required grants.
 
 ## Source files
 
-- `databricks.yml`: defaults, profile and resource includes.
+- `databricks.yml`: bundle variables, target and resource includes.
 - `resources/`: schema, pipeline, Job and App definitions.
 - `src/notebooks/restore_source.py`: deterministic source initialization/reset.
 - `src/pipelines/engineer_a.py`: row-level CDF → AUTO CDC consumer.
@@ -200,10 +231,17 @@ keep stable unique source keys, define retention/catch-up policies, and preserve
 lineage to every derived key. This example deliberately avoids aggregates, whose
 corrections require additional logic.
 
-To remove bundle-managed resources, review `databricks bundle destroy -t dev
---profile azure-fe-east` before running it. Managed source/baseline tables can
-prevent deleting a nonempty schema; inspect any remaining tables and remove the
-dedicated demo schema separately if needed. Do not drop a shared/customer schema.
+When you finish, remove your bundle-managed resources using the same deployment
+settings. Review the CLI's deletion prompt before confirming:
+
+```bash
+databricks bundle destroy \
+  --target dev --profile "$DEMO_PROFILE" "${DEMO_VARS[@]}"
+```
+
+Managed source/baseline tables can prevent deleting a nonempty schema; inspect any
+remaining tables and remove your dedicated demo schema separately if needed.
+Do not drop a shared/customer schema.
 
 Reference documentation:
 - [Delta Change Data Feed](https://learn.microsoft.com/en-us/azure/databricks/delta/delta-change-data-feed)
